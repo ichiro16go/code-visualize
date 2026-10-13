@@ -23,9 +23,10 @@ CodeMap は、知らないコード (AI に書いてもらったコード・他�
 | --- | --- | --- |
 | Node.js 20 以上 | CodeMap 本体を動かす | `node -v` |
 | git | GitHub のリポジトリを取得する | `git --version` |
-| Claude API キー (任意) | AI 解説・質問機能 | [Claude Console](https://console.anthropic.com/) で発行 |
+| Claude の Pro / Max プラン + Claude Code (任意) | AI 解説・質問機能 | `claude --version` |
+| または Claude API キー (任意) | AI 解説・質問機能 (従量課金) | [Claude Console](https://console.anthropic.com/) で発行 |
 
-API キーがなくても、**可視化 (5 つのビュー) とセキュリティチェックはすべて使えます**。AI 機能だけが無効になります。
+AI 機能を設定しなくても、**可視化 (5 つのビュー) とセキュリティチェックはすべて使えます**。AI 機能だけが無効になります。
 
 初回だけ、依存パッケージのインストールと画面のビルドを行います。
 
@@ -35,7 +36,38 @@ npm install
 npm run build
 ```
 
-### API キーを設定する (AI 機能を使う場合)
+### AI 機能を設定する
+
+AI 機能は次の 2 通りのどちらかで使えます。**Claude の Pro / Max プランを契約しているなら A がおすすめ** です。
+
+| | A. Claude のプランで使う | B. API キーで使う |
+| --- | --- | --- |
+| 必要なもの | Pro / Max プラン + Claude Code | Claude API キー |
+| 料金 | プランの料金内 (追加料金なし) | 使った分だけ従量課金 |
+| 上限 | プランの利用枠 (claude.ai・Claude Code と共通) | API の利用上限・残高 |
+| 仕組み | CodeMap が裏で `claude -p` を呼び出す | CodeMap が Claude API を直接呼び出す |
+
+#### A. Claude のプラン (Pro / Max) で使う
+
+1. Claude Code をインストールします (すでに使っているなら不要)。
+
+   ```bash
+   npm install -g @anthropic-ai/claude-code
+   ```
+
+2. ターミナルで `claude` を起動し、`/login` で **Claude アカウント (Pro / Max プランのアカウント)** にログインします。ログインできたら `/exit` で終了します。
+
+3. そのまま `npm start` で CodeMap を起動します。API キーを設定していなければ、自動でこの方式になります。
+
+起動時のターミナルに次のように表示されれば準備完了です。
+
+```
+  AI: Claude Code 経由 (Claude のプランの利用枠) / モデル: Claude Code の既定モデル
+```
+
+> CodeMap が Claude Code を呼び出すときは、ファイル操作やコマンド実行などのツールをすべて無効にし、解説用の指示だけを与えて動かします。CodeMap 経由で Claude Code が PC の中を勝手に操作することはありません。
+
+#### B. API キーで使う
 
 `.env.example` をコピーして `.env` を作り、キーを書き込みます。
 
@@ -50,7 +82,7 @@ ANTHROPIC_API_KEY=sk-ant-xxxxxxxxxxxx
 
 `.env` は `.gitignore` に入っているので、誤ってコミットされることはありません。
 
-> `ant auth login` で Anthropic CLI にログイン済みの場合は、`.env` を書かなくてもその認証情報が使われます。
+API キーが設定されていると **B が優先** されます。キーを残したままプランで使いたい場合は、`.env` に `CODEMAP_AI=subscription` と書いてください。
 
 ## 2. 起動する
 
@@ -241,7 +273,7 @@ CodeMap サーバー起動: http://127.0.0.1:5178  (model: claude-opus-5-5)
 
 ## 7. AI に解説してもらう・質問する
 
-AI 機能を使うには、[API キーの設定](#api-キーを設定する-ai-機能を使う場合) が必要です。設定されているかどうかは、トップ画面の **「AI: 有効」** の表示で確認できます。
+AI 機能を使うには、[AI 機能の設定](#ai-機能を設定する) が必要です。使えるかどうかは、トップ画面の **「AI: 有効 (Claude のプラン / …)」** の表示で確認できます。
 
 ### ファイルを解説してもらう
 
@@ -295,8 +327,10 @@ AI はファイル一覧・依存関係・読む順番・セキュリティ検�
 ### AI 機能の注意点
 
 - AI の回答は、ページを開いている間だけ保持されます。ブラウザを再読み込みすると消えます
-- **AI 機能のボタンを押したときだけ**、コードの一部が Claude API に送信されます (全体解説: README と主要ファイル / ファイル解説: そのファイルと import 先の冒頭 / チャット: ファイル一覧と、添付したファイル)。それ以外の解析はすべて PC 内で完結します
-- Claude API の利用料金がかかります。既定のモデル (`claude-opus-5-5`) は高性能な分だけ料金も高めです。安くしたい場合は [10. 設定](#10-設定) でモデルを変更できます
+- **AI 機能のボタンを押したときだけ**、コードの一部が Anthropic (Claude) に送信されます (全体解説: README と主要ファイル / ファイル解説: そのファイルと import 先の冒頭 / チャット: ファイル一覧と、添付したファイル)。それ以外の解析はすべて PC 内で完結します
+- **プラン (A) で使う場合**: 追加料金はかかりませんが、claude.ai や Claude Code と **同じ利用枠** を消費します。全体解説やセキュリティ診断は大きめのファイルを読むので、枠を多めに使います。上限に達すると「Claude プランの利用上限に達しました」と表示されるので、表示された時刻以降に再試行してください
+- **API キー (B) で使う場合**: 使った分だけ料金がかかります。既定のモデル (`claude-opus-5-5`) は高性能な分だけ料金も高めです
+- どちらの場合も、[10. 設定](#10-設定) の `CODEMAP_MODEL` で軽いモデル (`sonnet` や `haiku` など) に変えると、速く・枠や料金を節約できます
 - AI も間違えることがあります。重要な判断の前には、該当するコードを自分の目でも確認してください
 
 ## 8. セキュリティチェックの結果を読む
@@ -379,8 +413,10 @@ el.innerHTML = trustedTemplate; // codemap-ignore (固定の HTML なので安�
 
 | 設定 | 既定値 | 説明 |
 | --- | --- | --- |
-| `ANTHROPIC_API_KEY` | なし | Claude API キー |
-| `CODEMAP_MODEL` | `claude-opus-5-5` | AI 機能のモデル。料金を抑えたいなら `claude-sonnet-5-5` や `claude-haiku-5-5` |
+| `CODEMAP_AI` | `auto` | AI の呼び出し方。`auto` = API キーがあれば API、なければ Claude Code (プラン) / `subscription` = 常にプラン / `api` = 常に API |
+| `ANTHROPIC_API_KEY` | なし | Claude API キー (B の方式) |
+| `CODEMAP_MODEL` | API: `claude-opus-5-5`<br>プラン: Claude Code の既定 | AI 機能のモデル。プラン経由では `opus` / `sonnet` / `haiku` などの別名も使える。枠や料金を節約したいなら `sonnet` や `haiku` |
+| `CODEMAP_CLAUDE_BIN` | `claude` | Claude Code コマンドの場所 (PATH に無い場合にフルパスで指定) |
 | `CODEMAP_EFFORT` | `medium` | ファイル解説・チャットで AI がどれだけ深く考えるか (`low` / `medium` / `high` / `xhigh` / `max`)。上げるほど丁寧だが遅く・高くなる。全体解説とセキュリティ診断は常に `high` |
 | `GITHUB_TOKEN` | なし | 非公開リポジトリを読み込むためのトークン |
 | `PORT` | `5178` | サーバーのポート番号 |
@@ -393,7 +429,12 @@ el.innerHTML = trustedTemplate; // codemap-ignore (固定の HTML なので安�
 
 | 症状 / メッセージ | 対処 |
 | --- | --- |
-| 「AI: API キー未設定」と表示され、AI ボタンが押せない | `.env` に `ANTHROPIC_API_KEY` を書き、サーバーを再起動する |
+| 「AI: 無効 — Claude Code をインストールしてください」 | Claude Code をインストールする。インストール済みなら `CODEMAP_CLAUDE_BIN` に `claude` のフルパス (`which claude` で確認) を設定する |
+| 「AI: 無効 — … /login で Claude アカウントにログインしてください」 | ターミナルで `claude` を起動して `/login`。ログイン後、CodeMap のトップ画面を再読み込み (1 分ほど反映が遅れることがある) |
+| 「Claude Code にログインしていません」 | 上と同じ。ログインし直してから再試行する |
+| 「Claude プランの利用上限に達しました」 | プランの利用枠を使い切っている。表示された時刻以降に再試行するか、`CODEMAP_MODEL=haiku` など軽いモデルにする |
+| プランで使いたいのに API 課金になっている | `ANTHROPIC_API_KEY` が設定されていると API が優先される。キーを消すか `CODEMAP_AI=subscription` を設定する |
+| 「AI: 無効 — ANTHROPIC_API_KEY を設定してください」 | `CODEMAP_AI=api` になっている。`.env` に `ANTHROPIC_API_KEY` を書くか、`CODEMAP_AI` を消してプラン方式にする |
 | 「Claude API の認証に失敗しました」 | API キーが間違っているか無効。Claude Console で確認する |
 | 「API の利用上限に達しました」 | しばらく待ってから再試行する。Console で利用上限・残高を確認する |
 | 「モデル ○○ が見つかりません」 | `CODEMAP_MODEL` の綴りを確認する |

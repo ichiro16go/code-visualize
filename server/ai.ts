@@ -1,10 +1,57 @@
-// Claude API を使った解説・チャット機能
+// Claude を使った解説・チャット機能
+// 呼び出し方は 2 通り:
+//   subscription … Claude Code CLI (`claude -p`) 経由。Pro / Max プランの利用枠で動く (API キー不要)
+//   api          … Claude API を直接呼ぶ。ANTHROPIC_API_KEY が必要 (従量課金)
 
 import Anthropic from "@anthropic-ai/sdk";
 import type { Analysis, ChatMessage } from "../shared/types.ts";
+import { CliError, cliStatus, streamViaCli } from "./ai-cli.ts";
 import type { StoredAnalysis } from "./store.ts";
 
+export type Provider = "subscription" | "api";
+
+const PROVIDER_SETTING = (process.env.CODEMAP_AI ?? "auto").toLowerCase();
+const hasApiKey = () => Boolean(process.env.ANTHROPIC_API_KEY || process.env.ANTHROPIC_AUTH_TOKEN);
+
+/** 使う呼び出し方。auto のときは API キーがあれば API、なければ Claude Code (プラン) */
+export function provider(): Provider {
+  if (PROVIDER_SETTING === "api") return "api";
+  if (PROVIDER_SETTING === "subscription" || PROVIDER_SETTING === "cli") return "subscription";
+  return hasApiKey() ? "api" : "subscription";
+}
+
+// API では既定で Opus を使う。プラン経由では指定がなければ Claude Code の既定モデル (プランに応じて決まる)
 export const MODEL = process.env.CODEMAP_MODEL ?? "claude-opus-5-5";
+const CLI_MODEL = process.env.CODEMAP_MODEL;
+
+export interface AiStatus {
+  provider: Provider;
+  available: boolean;
+  model: string;
+  hint?: string;
+}
+
+export async function aiStatus(): Promise<AiStatus> {
+  if (provider() === "api") {
+    return {
+      provider: "api",
+      available: hasApiKey(),
+      model: MODEL,
+      hint: hasApiKey() ? undefined : "ANTHROPIC_API_KEY を設定してください",
+    };
+  }
+  const cli = await cliStatus();
+  return {
+    provider: "subscription",
+    available: cli.installed && cli.loggedIn,
+    model: CLI_MODEL ?? "Claude Code の既定モデル",
+    hint: !cli.installed
+      ? "Claude Code をインストールしてください (npm install -g @anthropic-ai/claude-code)"
+      : !cli.loggedIn
+        ? "ターミナルで claude を起動し /login で Claude アカウントにログインしてください"
+        : undefined,
+  };
+}
 type Effort = "low" | "medium" | "high" | "xhigh" | "max";
 const EFFORT = (process.env.CODEMAP_EFFORT as Effort | undefined) ?? "medium";
 
@@ -144,6 +191,15 @@ export async function streamClaude(
   handlers: StreamHandlers,
   options: { effort?: Effort; signal?: AbortSignal } = {},
 ): Promise<void> {
+  if (provider() === "subscription") {
+    const system = systemBlocks(analysis).map((b) => b.text).join("\n\n");
+    await streamViaCli(system, flattenMessages(messages), handlers.onText, {
+      model: CLI_MODEL,
+      effort: options.effort ?? EFFORT,
+      signal: options.signal,
+    });
+    return;
+  }
   const params: Anthropic.Beta.MessageCreateParamsStreaming = {
     model: MODEL,
     max_tokens: 64000,
@@ -171,6 +227,17 @@ export async function streamClaude(
   }
 }
 
+/** CLI には 1 つのプロンプトしか渡せないので、会話履歴をテキストにまとめる */
+function flattenMessages(messages: Anthropic.Beta.BetaMessageParam[]): string {
+  const text = (m: Anthropic.Beta.BetaMessageParam) => (typeof m.content === "string" ? m.content : m.content.map((b) => ("text" in b ? b.text : "")).join("\n"));
+  if (messages.length === 1) return text(messages[0]);
+  const history = messages
+    .slice(0, -1)
+    .map((m) => `<${m.role}>\n${text(m)}\n</${m.role}>`)
+    .join("\n");
+  return `これまでの会話:\n<conversation>\n${history}\n</conversation>\n\n上の会話の続きです。次の質問に答えてください。\n\n${text(messages[messages.length - 1])}`;
+}
+
 export function chatMessages(stored: StoredAnalysis, history: ChatMessage[], focusPath?: string): Anthropic.Beta.BetaMessageParam[] {
   const msgs: Anthropic.Beta.BetaMessageParam[] = history.map((m) => ({ role: m.role, content: m.content }));
   const last = msgs[msgs.length - 1];
@@ -181,6 +248,7 @@ export function chatMessages(stored: StoredAnalysis, history: ChatMessage[], foc
 }
 
 export function describeAiError(e: unknown): string {
+  if (e instanceof CliError) return e.message;
   if (e instanceof Anthropic.AuthenticationError) {
     return "Claude API の認証に失敗しました。環境変数 ANTHROPIC_API_KEY を設定してからサーバーを再起動してください。";
   }

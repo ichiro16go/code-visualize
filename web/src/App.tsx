@@ -62,7 +62,7 @@ export function App() {
   if (!analysis) return <Home status={status} onLoaded={open} />;
   return (
     <ReactFlowProvider>
-      <Workspace key={analysis.id} analysis={analysis} aiEnabled={status?.hasApiKey ?? false} onHome={() => (location.hash = "#/")} />
+      <Workspace key={analysis.id} analysis={analysis} aiEnabled={status?.ai.available ?? false} onHome={() => (location.hash = "#/")} />
     </ReactFlowProvider>
   );
 }

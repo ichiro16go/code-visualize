@@ -9,7 +9,7 @@ import { existsSync } from "node:fs";
 import type { ChatMessage } from "../shared/types.ts";
 import { analyze } from "./analyzer/index.ts";
 import { filterSources, type SourceFile } from "./analyzer/collect.ts";
-import { chatMessages, describeAiError, explainPrompt, MODEL, overviewPrompt, securityPrompt, streamClaude } from "./ai.ts";
+import { aiStatus, chatMessages, describeAiError, explainPrompt, overviewPrompt, provider, securityPrompt, streamClaude } from "./ai.ts";
 import { loadGitHub, loadLocal, parseGitHubUrl, SourceError } from "./sources.ts";
 import { deleteAnalysis, getAnalysis, listHistory, saveAnalysis } from "./store.ts";
 
@@ -23,10 +23,9 @@ app.onError((err, c) => {
   return c.json({ error: err instanceof SourceError ? err.message : `サーバーエラー: ${err.message}` }, err instanceof SourceError ? 400 : 500);
 });
 
-app.get("/api/status", (c) =>
+app.get("/api/status", async (c) =>
   c.json({
-    model: MODEL,
-    hasApiKey: Boolean(process.env.ANTHROPIC_API_KEY || process.env.ANTHROPIC_AUTH_TOKEN),
+    ai: await aiStatus(),
     hasGitHubToken: Boolean(process.env.GITHUB_TOKEN),
   }),
 );
@@ -127,9 +126,10 @@ if (existsSync("dist/index.html")) {
   app.get("*", serveStatic({ path: "./dist/index.html" }));
 }
 
-serve({ fetch: app.fetch, port: PORT, hostname: HOST }, (info) => {
-  console.log(`CodeMap サーバー起動: http://${HOST}:${info.port}  (model: ${MODEL})`);
-  if (!process.env.ANTHROPIC_API_KEY && !process.env.ANTHROPIC_AUTH_TOKEN) {
-    console.log("  ※ ANTHROPIC_API_KEY が未設定です。AI 解説機能を使うには設定してください (可視化・セキュリティチェックはそのまま使えます)");
-  }
+serve({ fetch: app.fetch, port: PORT, hostname: HOST }, async (info) => {
+  console.log(`CodeMap サーバー起動: http://${HOST}:${info.port}`);
+  const ai = await aiStatus();
+  const how = provider() === "subscription" ? "Claude Code 経由 (Claude のプランの利用枠)" : "Claude API (API キー)";
+  if (ai.available) console.log(`  AI: ${how} / モデル: ${ai.model}`);
+  else console.log(`  ※ AI 機能は無効です: ${ai.hint} (可視化・セキュリティチェックはそのまま使えます)`);
 });

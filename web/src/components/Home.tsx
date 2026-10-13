@@ -101,8 +101,12 @@ export function Home({ status, onLoaded }: { status: Status | null; onLoaded: (a
         {error && <pre className="error">{error}</pre>}
 
         <div className="status-row">
-          <span className={`pill ${status?.hasApiKey ? "ok" : "warn"}`}>
-            {status?.hasApiKey ? `AI: 有効 (${status.model})` : "AI: API キー未設定 (可視化とセキュリティチェックは使えます)"}
+          <span className={`pill ${status?.ai.available ? "ok" : "warn"}`} title={status?.ai.hint}>
+            {!status
+              ? "AI: 確認中…"
+              : status.ai.available
+                ? `AI: 有効 (${status.ai.provider === "subscription" ? "Claude のプラン" : "API キー"} / ${status.ai.model})`
+                : `AI: 無効 — ${status.ai.hint ?? "設定を確認してください"} (可視化とセキュリティチェックは使えます)`}
           </span>
           {status && !status.hasGitHubToken && <span className="pill">非公開リポジトリには GITHUB_TOKEN が必要</span>}
         </div>
@@ -142,7 +146,7 @@ export function Home({ status, onLoaded }: { status: Status | null; onLoaded: (a
         <div><strong>5 つのビュー</strong><span>フォルダ構造・依存関係・読む順番・セキュリティ・複雑度マップ</span></div>
         <div><strong>AI 解説</strong><span>全体像、ファイルごとの役割、自由な質問に日本語で回答</span></div>
         <div><strong>セキュリティチェック</strong><span>API キーの直書き・SQL インジェクション・XSS など 21 種類のルール + AI 診断</span></div>
-        <div><strong>ローカル完結</strong><span>コードはあなたの PC 内で解析。AI 機能を使うときだけ Claude API に送信</span></div>
+        <div><strong>ローカル完結</strong><span>コードはあなたの PC 内で解析。AI 機能を使うときだけ Claude に送信 (Pro / Max プランでも API キーでも OK)</span></div>
       </section>
     </div>
   );

@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { Analysis } from "../../../shared/types.ts";
-import { api } from "../api.ts";
+import { AI_DISABLED_MESSAGE, api } from "../api.ts";
 import { ROLE_COLOR, ROLE_LABEL, SEVERITY_COLOR, SEVERITY_LABEL } from "../graph.ts";
 import { useAiStream } from "../useAi.ts";
 import { Markdown } from "./Markdown.tsx";
@@ -151,7 +151,7 @@ export function FilePanel({
         )}
         {tab !== "code" && (
           <div className="ai-pane">
-            {!aiEnabled && <p className="notice">AI 機能を使うには、サーバー起動時に環境変数 ANTHROPIC_API_KEY を設定してください。</p>}
+            {!aiEnabled && <p className="notice">{AI_DISABLED_MESSAGE}</p>}
             {!ai.text && !ai.loading && (
               <div className="ai-start">
                 <p className="muted">

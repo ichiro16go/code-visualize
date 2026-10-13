@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { Analysis, ChatMessage } from "../../../shared/types.ts";
+import { AI_DISABLED_MESSAGE } from "../api.ts";
 import { useAiStream } from "../useAi.ts";
 import { Markdown } from "./Markdown.tsx";
 
@@ -43,7 +44,7 @@ export function AiPanel({
         </div>
         <button className="icon-btn" onClick={onClose} aria-label="閉じる">✕</button>
       </header>
-      {!aiEnabled && <p className="notice">AI 機能を使うには、サーバー起動時に環境変数 ANTHROPIC_API_KEY を設定してください。</p>}
+      {!aiEnabled && <p className="notice">{AI_DISABLED_MESSAGE}</p>}
       {tab === "overview" ? (
         <Overview analysis={analysis} paths={paths} onOpen={onOpen} aiEnabled={aiEnabled} />
       ) : (

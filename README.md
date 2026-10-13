@@ -33,13 +33,29 @@ npm run build      # フロントエンドをビルド
 npm start          # http://127.0.0.1:5178 を開く
 ```
 
-AI 機能を使う場合は Claude API キーを設定してから起動します (未設定でも可視化とセキュリティチェックは使えます)。
-`.env.example` を `.env` にコピーして書き込むか、環境変数で渡します。
+### AI 機能の設定 (どちらか一方)
+
+AI 機能を設定しなくても、可視化とセキュリティチェックはそのまま使えます。
+
+**A. Claude のプラン (Pro / Max) で使う — API キー不要**
+
+[Claude Code](https://docs.claude.com/en/docs/claude-code) を入れて、Claude アカウントでログインしておくだけです。
+CodeMap は裏で `claude -p` (Claude Code の非対話モード) を呼び出すので、**プランの利用枠の範囲で使え、別途料金はかかりません**。
 
 ```bash
-export ANTHROPIC_API_KEY=sk-ant-...
+npm install -g @anthropic-ai/claude-code
+claude            # 起動したら /login で Claude アカウント (Pro / Max) にログイン → /exit
+npm start         # API キーが無ければ自動でこの方式になる
+```
+
+**B. Claude API キーで使う — 従量課金**
+
+```bash
+export ANTHROPIC_API_KEY=sk-ant-...   # または .env に書く
 npm start
 ```
+
+API キーがあるときは B が優先されます。両方あってもプランで使いたい場合は `CODEMAP_AI=subscription` を設定してください。
 
 開発時はホットリロード付きで起動できます (http://127.0.0.1:5173)。
 
@@ -51,8 +67,10 @@ npm run dev
 
 | 変数 | 既定値 | 説明 |
 | --- | --- | --- |
-| `ANTHROPIC_API_KEY` | なし | Claude API キー。`ant auth login` 済みのプロファイルがあればそれも使われます |
-| `CODEMAP_MODEL` | `claude-opus-5-5` | AI 機能で使うモデル |
+| `CODEMAP_AI` | `auto` | AI の呼び出し方。`auto` (API キーがあれば API、なければ Claude Code) / `subscription` (Claude Code 経由・プランの枠) / `api` |
+| `ANTHROPIC_API_KEY` | なし | Claude API キー (`api` のときに使用) |
+| `CODEMAP_MODEL` | API: `claude-opus-5-5` / プラン: Claude Code の既定 | AI 機能で使うモデル。プラン経由では `opus` `sonnet` `haiku` などの別名も使える |
+| `CODEMAP_CLAUDE_BIN` | `claude` | Claude Code コマンドのパス (PATH に無い場合) |
 | `CODEMAP_EFFORT` | `medium` | 解説・チャットの思考量 (`low` / `medium` / `high` / `xhigh` / `max`)。全体解説とセキュリティ診断は `high` 固定 |
 | `GITHUB_TOKEN` | なし | 非公開リポジトリを取得する場合に設定 |
 | `PORT` | `5178` | サーバーのポート |
@@ -62,7 +80,7 @@ npm run dev
 ## プライバシー
 
 - 解析 (依存関係・読む順番・セキュリティチェック) はすべて手元の PC で行います。
-- コードが外部に送られるのは **AI 機能のボタンを押したときだけ** で、送信先は Claude API です。全体解説では README と主要ファイルの一部、ファイル解説では対象ファイルとその import 先の冒頭が送られます。
+- コードが外部に送られるのは **AI 機能のボタンを押したときだけ** で、送信先は Anthropic (Claude) です (プラン経由の場合は Claude Code を通して送られます)。全体解説では README と主要ファイルの一部、ファイル解説では対象ファイルとその import 先の冒頭が送られます。
 - サーバーは既定で `127.0.0.1` のみで待ち受けます。
 
 ## セキュリティチェックのルール
@@ -84,7 +102,8 @@ npm run dev
 ```
 server/            ローカル API サーバー (Hono)
   analyzer/        解析エンジン: ファイル収集 / import 解決 / 複雑度 / 読む順番 / セキュリティ
-  ai.ts            Claude API 呼び出し (ストリーミング)
+  ai.ts            AI 機能 (プロンプト作成、API / Claude Code の切り替え)
+  ai-cli.ts        Claude Code CLI (`claude -p`) 経由の呼び出し (プランの利用枠)
   sources.ts       GitHub (git clone --depth 1) / ローカルフォルダの読み込み
   store.ts         解析結果の保存 (gzip JSON)
 shared/            サーバーとフロントエンドで共有する型・言語判定

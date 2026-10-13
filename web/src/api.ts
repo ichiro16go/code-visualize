@@ -2,10 +2,18 @@ import type { Analysis, ChatMessage } from "../../shared/types.ts";
 import { detectLanguage } from "../../shared/languages.ts";
 
 export interface Status {
-  model: string;
-  hasApiKey: boolean;
+  ai: {
+    /** subscription = Claude Code 経由 (Pro / Max プラン)、api = API キー */
+    provider: "subscription" | "api";
+    available: boolean;
+    model: string;
+    hint?: string;
+  };
   hasGitHubToken: boolean;
 }
+
+export const AI_DISABLED_MESSAGE =
+  "AI 機能が使えません。Claude Code で Claude アカウント (Pro / Max プラン) にログインするか、ANTHROPIC_API_KEY を設定してサーバーを再起動してください。";
 
 export interface HistoryItem {
   id: string;
