@@ -6,6 +6,8 @@ AI (Claude) による解説・質問応答と、セキュリティチェック�
 [個人開発でAIコード可視化ツール「CodeMap」を作った話 (Qiita)](https://qiita.com/creolab_dev/items/427ecd0f70555d6125ba) の CodeMap と同等の機能を、
 SaaS ではなく **自分の PC だけで動く個人用ツール** として作り直したものです (アカウント登録・課金・DB は不要)。
 
+**📖 詳しい使い方は [docs/USAGE.md](docs/USAGE.md) を見てください。**
+
 ## できること
 
 | 機能 | 内容 |
